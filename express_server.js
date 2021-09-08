@@ -37,6 +37,7 @@ app.get("/urls",(req,res)=>{
 
 app.post("/urls", (req, res) => {
   console.log(req.body);  // Log the POST request body to the console
+  if(req.body.longURL)
   randomLetters=randomFunction()
   urlDatabase[randomLetters]=req.body.longURL
   res.redirect(`/urls/${randomLetters}`)       // Respond with 'Ok' (we will replace this)
@@ -55,6 +56,7 @@ app.get("/u/:shortURL", (req, res) => {
   res.redirect(longURL);
 });
 
+
 app.post("/urls/:shortURL/delete",(req,res)=>{
   delete urlDatabase[req.params.shortURL];
   res.redirect('/urls')
@@ -63,10 +65,18 @@ app.post("/urls/:shortURL/delete",(req,res)=>{
 app.get("/urls/:shortURL", (req, res) => {
   console.log("/urls/:shorturl");
   const templateVars = { shortURL: req.params.shortURL, longURL:urlDatabase[req.params.shortURL] };
+  
   console.log(templateVars)
   res.render("urls_show", templateVars);
 });
 
+app.post("/urls/:shortURL", (req,res)=>{
+  if(req.params.shortURL){
+    urlDatabase[req.params.shortURL]=req.body.longURL
+  }
+  console.log(urlDatabase[req.params.shortURL],req.body.longURL)
+  res.redirect('/urls')
+})
 app.listen(PORT,()=>{
   console.log("server listening ")
 });
