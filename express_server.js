@@ -19,6 +19,30 @@ const randomFunction = ()=>{
   return result;
 };
 
+const emailLookup=(email)=>{
+  for (let user in users ){
+    if (users[user].email===email){
+      return true
+    }
+  }
+  return false;
+}
+//users database
+const users = { 
+  "userRandomID": {
+    id: "userRandomID", 
+    email: "user@example.com", 
+    password: "purple-monkey-dinosaur",
+    urls:[]
+  },
+ "user2RandomID": {
+    id: "user2RandomID", 
+    email: "user2@example.com", 
+    password: "dishwasher-funk",
+    urls:[]
+  }
+}
+
 //global "database" to be used by each endpoint 
 const urlDatabase = {
 
@@ -31,9 +55,10 @@ app.get("/urls.json", (req,res)=>{
 //show all urls
 app.get("/urls",(req,res)=>{
   const templateVars = {
-    username:req.cookies["username"],
-    urls: urlDatabase
-  };
+    user: users[req.cookies.user_id]
+  }
+  console.log("/urls get")
+  console.log(templateVars)
   res.render("urls_index",templateVars);
 });
 
@@ -46,9 +71,9 @@ app.post("/urls", (req, res) => {
 });
 //display endpoint to enter new url
 app.get("/urls_new",(req,res)=>{
-  let templateVars = {
-    username:req.cookies["username"]
-  };
+  const templateVars = {
+    user: users[req.cookies.user_id]
+  }
   res.render("urls_new",templateVars);
 });
 //redirect GETs of the shortened url to the proper longurl
@@ -58,12 +83,25 @@ app.get("/u/:shortURL", (req, res) => {
 });
 //log the user in
 app.post("/login", (req,res)=>{
-  res.cookie('username', req.body.username);
-  res.redirect("/urls");
+  for (const user in users) {
+    if (users[user].email===req.body.email &&users[user].password===req.body.password) {
+      res.cookie("user_id",user.id);
+      res.redirect("urls")
+    }
+  }
+  res.sendStatus(403)
 });
+
+app.get("/login", (req,res)=>{
+  templateVars={
+    user: null
+  }
+  res.render("login",templateVars)
+})
+
 //log the user out and bring them back to main page
 app.post("/logout",(req,res)=>{
-  res.clearCookie('username');
+  res.clearCookie('user_id');
   res.redirect("/urls");
 });
 //delete a url when button is pressed
@@ -74,7 +112,7 @@ app.post("/urls/:shortURL/delete",(req,res)=>{
 //show the shortened url page
 app.get("/urls/:shortURL", (req, res) => {
   const templateVars = {
-    username:req.cookies["username"],
+    user:users[req.cookies.user_id],
     shortURL: req.params.shortURL,
     longURL:urlDatabase[req.params.shortURL]
   };
@@ -88,6 +126,33 @@ app.post("/urls/:shortURL", (req,res)=>{
   }
   res.redirect('/urls');
 });
+
+app.get("/register",(req,res)=>{
+  
+  const templateVars = {
+    user: null
+  }
+  res.render("register",templateVars)
+})
+
+app.post("/register",(req,res)=>{
+  console.log(req.body.email.length,req.body.password.length)
+  if(req.body.email.length===0 || req.body.password.length===0){
+    res.sendStatus(400)
+  }else if(emailLookup(req.body.email)){
+    res.sendStatus(400)
+  }
+  let id=randomFunction();
+  users[id]={
+    id, 
+    email: req.body.email, 
+    password: req.body.password,
+    urls:[]
+  }
+  console.log(users)
+  res.cookie('user_id',id)
+  res.redirect('/urls')
+})
 //turn server on
 app.listen(PORT,()=>{
   console.log("server listening ");
