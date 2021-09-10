@@ -19,6 +19,16 @@ const randomFunction = ()=>{
   return result;
 };
 
+const urlsForUser = function(id, urlDatabase) {
+  const userUrls = {};
+  for (const shortURL in urlDatabase) {
+    if (urlDatabase[shortURL].userID === id) {
+      userUrls[shortURL] = urlDatabase[shortURL];
+    }
+  }
+  return userUrls;
+};
+
 const emailLookup=(email)=>{
   for (let user in users ){
     if (users[user].email===email){
@@ -33,31 +43,28 @@ const users = {
     id: "userRandomID", 
     email: "user@example.com", 
     password: "purple-monkey-dinosaur",
-    urls:[]
   },
  "user2RandomID": {
     id: "user2RandomID", 
     email: "user2@example.com", 
     password: "dishwasher-funk",
-    urls:[]
   }
 }
 
 //global "database" to be used by each endpoint 
 const urlDatabase = {
-
+  b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
+  i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
 };
-
-app.get("/urls.json", (req,res)=>{
-  res.json(urlDatabase);
-});
 
 //show all urls
 app.get("/urls",(req,res)=>{
+  
   const templateVars = {
+    urls:urlsForUser(req.cookies.user_id, urlDatabase),
     user: users[req.cookies.user_id]
   }
-  console.log("/urls get")
+  
   console.log(templateVars)
   res.render("urls_index",templateVars);
 });
@@ -65,20 +72,31 @@ app.get("/urls",(req,res)=>{
 //create shortened url:long url and add to urldatabase
 //long url will be what is submitted from the form on urls_new.ejs
 app.post("/urls", (req, res) => {
-  let randomLetters = randomFunction();
-  urlDatabase[randomLetters] = req.body.longURL;
-  res.redirect(`/urls/${randomLetters}`);    
+  if (req.cookies.user_id) {
+    const shortURL = randomFunction();
+    urlDatabase[shortURL] = {
+      longURL: req.body.longURL,
+      userID: req.cookies.user_id,
+    };
+    res.redirect(`/urls/${shortURL}`);
+  } else {
+    res.status(401).send("You must be logged in to a valid account to create short URLs.");
+  }
 });
 //display endpoint to enter new url
 app.get("/urls_new",(req,res)=>{
+  if(req.cookies.user_id){
   const templateVars = {
     user: users[req.cookies.user_id]
   }
   res.render("urls_new",templateVars);
+}else{
+  res.redirect("/login")
+}
 });
 //redirect GETs of the shortened url to the proper longurl
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
 //log the user in
@@ -106,18 +124,30 @@ app.post("/logout",(req,res)=>{
 });
 //delete a url when button is pressed
 app.post("/urls/:shortURL/delete",(req,res)=>{
-  delete urlDatabase[req.params.shortURL];
+
+  if(urlDatabase[req.params.shortURL].userID===req.cookies.user_id){
+
+  delete users[req.cookies.user_id].urls[req.params.shortURL]
+  //delete urlDatabase[req.params.shortURL];
   res.redirect('/urls');
+  }else{
+    res.sendStatus(403)
+  }
 });
 //show the shortened url page
 app.get("/urls/:shortURL", (req, res) => {
+  if(urlDatabase[req.params.shortURL].userID===req.cookies.user_id){
   const templateVars = {
     user:users[req.cookies.user_id],
     shortURL: req.params.shortURL,
-    longURL:urlDatabase[req.params.shortURL]
+    longURL:urlDatabase[req.params.shortURL].longURL
   };
   
   res.render("urls_show", templateVars);
+  }else{
+    res.status(400);
+  res.send('This tiny url does not belong to you or you are not logged in!');
+  }
 });
 //update url
 app.post("/urls/:shortURL", (req,res)=>{
@@ -136,7 +166,6 @@ app.get("/register",(req,res)=>{
 })
 
 app.post("/register",(req,res)=>{
-  console.log(req.body.email.length,req.body.password.length)
   if(req.body.email.length===0 || req.body.password.length===0){
     res.sendStatus(400)
   }else if(emailLookup(req.body.email)){
@@ -147,7 +176,6 @@ app.post("/register",(req,res)=>{
     id, 
     email: req.body.email, 
     password: req.body.password,
-    urls:[]
   }
   console.log(users)
   res.cookie('user_id',id)
