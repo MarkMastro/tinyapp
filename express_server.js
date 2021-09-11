@@ -2,41 +2,21 @@ const express = require('express');
 const app = express();
 const bodyParser = require("body-parser");
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcrypt');
+const cookieSession=require('cookie-session')
+app.use(cookieSession({
+  name: 'session',
+  keys: ['MARKM'],
+  maxAge: 24 * 60 * 60 * 1000,
+}));
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({extended: true}));
 const PORT = 8080;
 
 app.set('view engine','ejs');
 
-//function to create set of 6 random letters to be our shortened link
-const randomFunction = ()=>{
-  let result = '';
-  let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; //allowed characters in short url
-  let charactersLength = characters.length;
-  for (let i = 0; i < 6; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-};
+const {randomFunction,urlsForUser,emailLookup}=require('./helpers')
 
-const urlsForUser = function(id, urlDatabase) {
-  const userUrls = {};
-  for (const shortURL in urlDatabase) {
-    if (urlDatabase[shortURL].userID === id) {
-      userUrls[shortURL] = urlDatabase[shortURL];
-    }
-  }
-  return userUrls;
-};
-
-const emailLookup=(email)=>{
-  for (let user in users ){
-    if (users[user].email===email){
-      return true
-    }
-  }
-  return false;
-}
 //users database
 const users = { 
   "userRandomID": {
@@ -61,8 +41,8 @@ const urlDatabase = {
 app.get("/urls",(req,res)=>{
   
   const templateVars = {
-    urls:urlsForUser(req.cookies.user_id, urlDatabase),
-    user: users[req.cookies.user_id]
+    urls:urlsForUser(req.session.user_id, urlDatabase),
+    user: users[req.session.user_id]
   }
   
   console.log(templateVars)
@@ -72,11 +52,11 @@ app.get("/urls",(req,res)=>{
 //create shortened url:long url and add to urldatabase
 //long url will be what is submitted from the form on urls_new.ejs
 app.post("/urls", (req, res) => {
-  if (req.cookies.user_id) {
+  if (req.session.user_id) {
     const shortURL = randomFunction();
     urlDatabase[shortURL] = {
       longURL: req.body.longURL,
-      userID: req.cookies.user_id,
+      userID: req.session.user_id,
     };
     res.redirect(`/urls/${shortURL}`);
   } else {
@@ -85,9 +65,9 @@ app.post("/urls", (req, res) => {
 });
 //display endpoint to enter new url
 app.get("/urls_new",(req,res)=>{
-  if(req.cookies.user_id){
+  if(req.session.user_id){
   const templateVars = {
-    user: users[req.cookies.user_id]
+    user: users[req.session.user_id]
   }
   res.render("urls_new",templateVars);
 }else{
@@ -102,8 +82,8 @@ app.get("/u/:shortURL", (req, res) => {
 //log the user in
 app.post("/login", (req,res)=>{
   for (const user in users) {
-    if (users[user].email===req.body.email &&users[user].password===req.body.password) {
-      res.cookie("user_id",user.id);
+    if (users[user].email===req.body.email && bcrypt.compareSync(req.body.password, users[user].password)) {
+      req.session.user_id=users[user].id;
       res.redirect("urls")
     }
   }
@@ -120,14 +100,14 @@ app.get("/login", (req,res)=>{
 //log the user out and bring them back to main page
 app.post("/logout",(req,res)=>{
   res.clearCookie('user_id');
-  res.redirect("/urls");
+  res.redirect("/login");
 });
 //delete a url when button is pressed
 app.post("/urls/:shortURL/delete",(req,res)=>{
 
-  if(urlDatabase[req.params.shortURL].userID===req.cookies.user_id){
+  if(urlDatabase[req.params.shortURL].userID===req.session.user_id){
 
-  delete users[req.cookies.user_id].urls[req.params.shortURL]
+  delete users[req.session.user_id].urls[req.params.shortURL]
   //delete urlDatabase[req.params.shortURL];
   res.redirect('/urls');
   }else{
@@ -136,9 +116,9 @@ app.post("/urls/:shortURL/delete",(req,res)=>{
 });
 //show the shortened url page
 app.get("/urls/:shortURL", (req, res) => {
-  if(urlDatabase[req.params.shortURL].userID===req.cookies.user_id){
+  if(urlDatabase[req.params.shortURL].userID===req.session.user_id){
   const templateVars = {
-    user:users[req.cookies.user_id],
+    user:users[req.session.user_id],
     shortURL: req.params.shortURL,
     longURL:urlDatabase[req.params.shortURL].longURL
   };
@@ -168,17 +148,18 @@ app.get("/register",(req,res)=>{
 app.post("/register",(req,res)=>{
   if(req.body.email.length===0 || req.body.password.length===0){
     res.sendStatus(400)
-  }else if(emailLookup(req.body.email)){
+  }else if(emailLookup(req.body.email,users)){
     res.sendStatus(400)
   }
   let id=randomFunction();
+  console.log(id)
   users[id]={
     id, 
     email: req.body.email, 
-    password: req.body.password,
+    password: bcrypt.hashSync(req.body.password, 10),
   }
   console.log(users)
-  res.cookie('user_id',id)
+  req.session.user_id=id;
   res.redirect('/urls')
 })
 //turn server on
