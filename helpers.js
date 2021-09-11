@@ -18,12 +18,12 @@ const urlsForUser = function(id, urlDatabase) {
   return userUrls;
 };
 
-const emailLookup=(email,users)=>{
-  for (let user in users ){
-    if (users[user].email===email){
-      return true
+const emailLookup = (email,users)=>{
+  for (let user in users) {
+    if (users[user].email === email) {
+      return true;
     }
   }
   return false;
-}
-module.exports={randomFunction,urlsForUser,emailLookup}
+};
+module.exports = {randomFunction,urlsForUser,emailLookup};
