@@ -45,7 +45,6 @@ app.get("/urls",(req,res)=>{
     user: users[req.session.user_id]
   };
   
-  console.log(templateVars);
   res.render("urls_index",templateVars);
 });
 
@@ -152,13 +151,11 @@ app.post("/register",(req,res)=>{
     res.sendStatus(400);
   }
   let id = randomFunction();
-  console.log(id);
   users[id] = {
     id,
     email: req.body.email,
     password: bcrypt.hashSync(req.body.password, 10),
   };
-  console.log(users);
   req.session.user_id = id;
   res.redirect('/urls');
 });
