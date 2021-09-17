@@ -39,13 +39,20 @@ const urlDatabase = {
 
 //show all urls
 app.get("/urls",(req,res)=>{
-  
+  if (req.session.user_id) {
   const templateVars = {
     urls:urlsForUser(req.session.user_id, urlDatabase),
     user: users[req.session.user_id]
   };
   
   res.render("urls_index",templateVars);
+  }
+  else{
+    const templateVars = {
+      user: null
+    };
+    res.render("register",templateVars);
+  }
 });
 
 //create shortened url:long url and add to urldatabase
@@ -98,7 +105,7 @@ app.get("/login", (req,res)=>{
 
 //log the user out and bring them back to main page
 app.post("/logout",(req,res)=>{
-  res.clearCookie('user_id');
+  res.clearCookie('session');
   res.redirect("/login");
 });
 //delete a url when button is pressed
@@ -131,9 +138,10 @@ app.get("/urls/:shortURL", (req, res) => {
 //update url
 app.post("/urls/:shortURL", (req,res)=>{
   if (req.params.shortURL) {
-    urlDatabase[req.params.shortURL] = req.body.longURL;
+    urlDatabase[req.params.shortURL].longURL=req.body.longURL;
+    res.redirect('/urls');
   }
-  res.redirect('/urls');
+  
 });
 
 app.get("/register",(req,res)=>{
@@ -147,7 +155,7 @@ app.get("/register",(req,res)=>{
 app.post("/register",(req,res)=>{
   if (req.body.email.length === 0 || req.body.password.length === 0) {
     res.sendStatus(400);
-  } else if (emailLookup(req.body.email,users)) {
+  } else if (emailLookup(req.body.email.users)) {
     res.sendStatus(400);
   }
   let id = randomFunction();
