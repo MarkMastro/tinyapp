@@ -112,9 +112,7 @@ app.post("/logout",(req,res)=>{
 app.post("/urls/:shortURL/delete",(req,res)=>{
 
   if (urlDatabase[req.params.shortURL].userID === req.session.user_id) {
-
-    delete users[req.session.user_id].urls[req.params.shortURL];
-    //delete urlDatabase[req.params.shortURL];
+    delete urlDatabase[req.params.shortURL]
     res.redirect('/urls');
   } else {
     res.sendStatus(403);
